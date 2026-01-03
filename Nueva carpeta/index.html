@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Entreno – Descansos</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#111">
+
+<style>
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #111;
+    color: white;
+    text-align: center;
+    user-select: none;
+}
+
+#container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    height: 100vh;
+}
+
+select {
+    font-size: 1.2rem;
+    padding: 10px;
+    margin-bottom: 20px;
+}
+
+#info {
+    font-size: 1.5rem;
+    margin-bottom: 10px;
+}
+
+#timer {
+    font-size: 5rem;
+    font-weight: bold;
+}
+
+.ready { background: #111; }
+.active { background: #1b5e20; }
+.finished { background: #0d47a1; }
+</style>
+</head>
+
+<body class="ready">
+
+<div id="container">
+    <select id="daySelect">
+        <option value="lunes">Lunes – Pecho</option>
+        <option value="martes">Martes – Piernas</option>
+        <option value="viernes">Viernes – Pecho/Brazos</option>
+        <option value="sabado">Sábado – Full Body</option>
+        <option value="domingo">Domingo – Abdomen</option>
+    </select>
+
+    <div id="info">Toca para empezar</div>
+    <div id="timer">00:00</div>
+</div>
+
+<script>
+/* ---------------- DATOS ---------------- */
+const descansos = {
+    lunes: [35,35,45,40,30],
+    martes: [45,40,40,40,30],
+    viernes: [45,40,35,45,40],
+    sabado: [45,45,45,45],
+    domingo: [35,35,45]
+};
+
+/* ---------------- VARIABLES ---------------- */
+let ejercicio = 0;
+let tiempo = 0;
+let intervalo = null;
+let wakeLock = null;
+
+const timer = document.getElementById("timer");
+const info = document.getElementById("info");
+const body = document.body;
+const daySelect = document.getElementById("daySelect");
+
+const beep = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
+
+/* ---------------- FUNCIONES ---------------- */
+function formato(s) {
+    let m = Math.floor(s / 60).toString().padStart(2,'0');
+    let sec = (s % 60).toString().padStart(2,'0');
+    return `${m}:${sec}`;
+}
+
+async function activarPantallaEncendida() {
+    try {
+        if ('wakeLock' in navigator) {
+            wakeLock = await navigator.wakeLock.request('screen');
+        }
+    } catch (e) {
+        console.log("Wake Lock no disponible");
+    }
+}
+
+function empezarDescanso() {
+    if (intervalo) return;
+
+    activarPantallaEncendida();
+
+    const lista = descansos[daySelect.value];
+    if (ejercicio >= lista.length) {
+        info.innerText = "🎉 ENTRENAMIENTO TERMINADO";
+        timer.innerText = "✔";
+        body.className = "finished";
+        return;
+    }
+
+    tiempo = lista[ejercicio];
+    body.className = "active";
+    info.innerText = `Descanso ${ejercicio + 1}`;
+    timer.innerText = formato(tiempo);
+
+    intervalo = setInterval(() => {
+        tiempo--;
+        timer.innerText = formato(tiempo);
+
+        if (tiempo <= 0) {
+            clearInterval(intervalo);
+            intervalo = null;
+            ejercicio++;
+            body.className = "ready";
+            info.innerText = "Descanso terminado · toca";
+            timer.innerText = "00:00";
+            beep.play();
+            if (navigator.vibrate) navigator.vibrate(200);
+        }
+    }, 1000);
+}
+
+/* ---------------- EVENTOS ---------------- */
+document.body.addEventListener("click", empezarDescanso);
+
+daySelect.addEventListener("change", () => {
+    ejercicio = 0;
+    clearInterval(intervalo);
+    intervalo = null;
+    body.className = "ready";
+    info.innerText = "Día cambiado · toca";
+    timer.innerText = "00:00";
+});
+
+/* ---------------- SERVICE WORKER ---------------- */
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js');
+}
+</script>
+
+</body>
+</html>
